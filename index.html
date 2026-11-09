@@ -1,0 +1,109 @@
+<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>مافيا – الانتقام</title>
+<link href="https://fonts.googleapis.com/css2?family=Reem+Kufi:wght@600;700&family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+:root{--bg:#0a0708;--bg2:#17100f;--red:#b3202a;--gold:#d4af37;--tx:#efe6d6;--mu:#9b8f80}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 50% -10%,#3a0d12 0,var(--bg) 55%) fixed;color:var(--tx);font:16px/1.6 Tajawal,system-ui,sans-serif;min-height:100vh;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+body.night{background:#04050a}body.day{background:radial-gradient(circle at 50% -10%,#4a3a1a 0,#14100a 60%) fixed}
+h1,h2,h3{font-family:'Reem Kufi',serif;color:var(--gold);margin:.3em 0}#app{max-width:520px;margin:auto;padding:14px}
+.card{background:linear-gradient(160deg,#1f1514,#120c0c);border:1px solid #3a2a22;border-radius:14px;padding:14px;margin:10px 0}
+button{font:inherit;font-weight:700;background:var(--red);color:#fff;border:0;border-radius:10px;padding:10px 16px;margin:3px;cursor:pointer}
+button.g{background:#2a2019;border:1px solid var(--gold);color:var(--gold)}button.sel{outline:3px solid var(--gold)}button:disabled{opacity:.4}
+input{font:inherit;width:100%;padding:10px;border-radius:10px;border:1px solid #4a3a30;background:#0e0909;color:var(--tx);margin:4px 0}
+.tbl{position:relative;height:330px;margin:6px 0}.tbl:before{content:"";position:absolute;inset:16% 10%;border-radius:50%;background:radial-gradient(#0f5a38,#07301e);border:6px solid #3b2415;box-shadow:0 0 40px #000 inset}
+.pl{position:absolute;transform:translate(-50%,-50%);text-align:center;width:70px;font-size:12px}.pl svg{width:44px;height:44px;border-radius:50%;border:2px solid var(--gold);display:block;margin:auto}
+.pl.dead{filter:grayscale(1);opacity:.55}.pl.me svg{border-color:#fff}.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-left:3px}.on{background:#2ecc71}.off{background:#e74c3c}
+.tag{font-size:11px;color:var(--gold)}.bar{display:flex;justify-content:space-between;color:var(--mu)}
+.rc{display:flex;gap:12px;align-items:center}.rc svg{width:96px;height:96px;border-radius:12px;flex:none}
+.dark{text-align:center;padding:50px 10px;font-size:20px;color:var(--mu)}.log{font-size:13px;color:var(--mu);max-height:130px;overflow:auto}
+.chip{display:inline-block;background:#2a2019;border:1px solid var(--gold);border-radius:20px;padding:2px 10px;margin:2px;font-size:13px}
+.row{display:flex;flex-wrap:wrap}.sw{display:flex;gap:6px;flex-wrap:wrap}.sw svg{width:40px;height:40px;border-radius:50%;cursor:pointer;border:2px solid transparent}.sw svg.s{border-color:var(--gold)}
+#toast{color:#ff8a8a;min-height:22px}#chat{display:none;max-width:520px;margin:auto;padding:0 14px 14px}
+</style></head><body><div id="app"></div><div id="chat"><div class="log" id="cl"></div><input id="ci" placeholder="اكتب رسالة…" maxlength="200" onkeydown="if(event.key=='Enter'){send({t:'chat',m:this.value});this.value=''}"></div>
+<script>
+const $=q=>document.querySelector(q),esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const L=localStorage;let tok=L.mv_tok||(L.mv_tok=(crypto.randomUUID?crypto.randomUUID():Math.random().toString(36).slice(2)+Date.now()));
+let ws,S=null,LB=null,name=L.mv_name||'',av=+L.mv_av||0,code=new URLSearchParams(location.search).get('r')||'',end=0,sel=[],ac=null,key='',show=false,toast='';
+const RN={civ:'المدنيون',maf:'المافيا',yak:'الياكوزا',loner:'الوحيد'};
+const RO={bystander:['المواطن العادي','Bystander','civ'],detective:['المحقق','Detective','civ'],priest:['الكاهن','Priest','civ'],jailer:['السجان','Jailer','civ'],judge:['القاضي','Judge','civ'],sheriff:['الشريف','Sheriff','civ'],nurse:['الممرضة','Nurse','civ'],bodyguard:['الحارس الشخصي','Bodyguard','civ'],vixen:['فيكسن','Vixen','civ'],hypnotist:['المنوّم','Hypnotist','civ'],journalist:['الصحفي','Journalist','civ'],impostor:['المحتال','Impostor','civ'],thug:['فرد المافيا','Thug','maf'],thief:['اللص','Thief','maf'],godfather:['العرّاب','Godfather','maf'],lawyer:['المحامي','Lawyer','maf'],snitch:['الواشي','Snitch','maf'],yakuza:['الياكوزا','Yakuza','yak'],femme:['المرأة الفاتنة','Femme Fatale','loner'],psycho:['السايكو','Psycho','loner']};
+const D={bystander:['مواطن بلا قدرة خاصة.','لا تفعل شيئاً ليلاً. نهاراً ناقش وصوّت لكشف المافيا.'],
+detective:['تقتل أو تحقق مع لاعب.','حين تُنادى ليلاً اختر «قتل» أو «تحقيق» ثم الهدف، أو تخطَّ. التحقيق يريك بطاقة الهدف. لا قتل في الليلة الأولى.'],
+priest:['تقتل أو تحقق؛ ومن تحقق معه يعرف أنك الكاهن.','حين تُنادى ليلاً اختر قتلاً أو تحقيقاً ثم الهدف.'],
+jailer:['تحقق مع لاعب؛ إن كان مافيا يُسجن فلا قدرة ولا قتل ولا تصويت ويبقى في النقاش. يتحرر الجميع إن أُقصيتَ.','حين تُنادى ليلاً اختر هدف التحقيق.'],
+judge:['تحقق مع لاعب، وصوتك نهاراً بصوتين دون كشف هويتك.','حين تُنادى ليلاً اختر هدف التحقيق، ونهاراً صوّت كالمعتاد.'],
+sheriff:['تقتل لاعباً.','حين تُنادى ليلاً اختر الهدف أو تخطَّ. لا قتل في الليلة الأولى.'],
+nurse:['تحمي لاعباً؛ إن هوجم ينجو دون أن يعلم أحد.','حين تُنادى ليلاً اختر من تحميه (ليس نفسك).'],
+bodyguard:['تحمي لاعباً؛ إن هوجم تموت أنت بدلاً منه.','حين تُنادى ليلاً اختر من تحميه (ليس نفسك).'],
+vixen:['تغوي لاعباً: لا يستخدم قدرته ولا يمكن قتله تلك الليلة.','حين تُنادى ليلاً اختر الهدف.'],
+hypnotist:['تنوّم لاعباً: يصوّت نهاراً مثلك.','حين تُنادى ليلاً اختر الهدف، ثم صوّت نهاراً كما تريد منه.'],
+journalist:['تبحث في لاعبين معاً وتعرف إن كانا في فريق واحد.','حين تُنادى ليلاً اختر لاعبين.'],
+impostor:['تتظاهر بأنك من المافيا: تستيقظ معهم وتشارك في اختيار الضحية، وللمافيا قتلك بالأغلبية. فريقك المدنيون.','تظاهر بأنك مافيا طوال اللعبة.'],
+thug:['فرد مافيا بلا قدرة خاصة.','شارك المافيا في اختيار الضحية كل ليلة.'],
+thief:['تحجب قدرة لاعب تلك الليلة.','حين تُنادى ليلاً اختر الهدف.'],
+godfather:['تُسكت لاعباً: لا يصوّت في النهار التالي لكنه يشارك في النقاش.','حين تُنادى ليلاً اختر الهدف.'],
+lawyer:['تحقق مع لاعب.','حين تُنادى ليلاً اختر الهدف.'],
+snitch:['تشوّه سمعة لاعب: إن حُقق معه تلك الليلة تظهر بطاقة Thug.','حين تُنادى ليلاً اختر الهدف.'],
+yakuza:['عصابة تنافس المافيا وتقتل ضحية بعدها كل ليلة.','اتفقوا بالأغلبية على ضحية.'],
+femme:['تقتل لاعباً ما لم يكن مواطناً عادياً.','حين تُنادى ليلاً اختر الهدف. لا قتل في الليلة الأولى.'],
+psycho:['تقتل لاعباً.','حين تُنادى ليلاً اختر الهدف. لا قتل في الليلة الأولى.']};
+const AN={kill:'قتل',inv:'تحقيق',prot:'حماية',seduce:'إغواء',hyp:'تنويم',res:'بحث',block:'حجب',silence:'إسكات',slander:'تشويه'};
+const body='<circle cx="50" cy="40" r="15" fill="#e0b58a"/><path d="M16 100c0-30 16-38 34-38s34 8 34 38z" fill="#1c1c22"/>',hat='<path d="M30 34h40l-5-16H35z" fill="#111"/><rect x="24" y="33" width="52" height="5" fill="#111"/>',gold='#d4af37';
+const ACC={detective:hat+`<circle cx="66" cy="70" r="9" fill="none" stroke="${gold}" stroke-width="3"/><path d="M72 77l9 9" stroke="${gold}" stroke-width="3"/>`,priest:`<path d="M50 64v28M40 72h20" stroke="${gold}" stroke-width="5"/>`,jailer:'<path d="M22 8v90M38 8v90M54 8v90M70 8v90M86 8v90" stroke="#000" stroke-opacity=".55" stroke-width="4"/>',judge:`<rect x="58" y="70" width="26" height="8" fill="${gold}"/><rect x="67" y="78" width="7" height="14" fill="${gold}"/>`,sheriff:hat+`<path d="M50 66l4 9 10 1-8 6 3 10-9-6-9 6 3-10-8-6 10-1z" fill="${gold}"/>`,nurse:'<rect x="33" y="19" width="34" height="14" fill="#fff"/><path d="M50 21v10M45 26h10" stroke="#c00" stroke-width="3"/>',bodyguard:'<rect x="33" y="38" width="34" height="7" fill="#000"/><path d="M40 62l10 14 10-14" stroke="#fff" stroke-width="3" fill="none"/>',vixen:'<path d="M31 42c-4-30 38-30 38 0 0 16 2 28 2 28l-8-18H39l-8 18z" fill="#6b0f1a"/>',hypnotist:`<circle cx="50" cy="76" r="14" fill="none" stroke="${gold}" stroke-width="2"/><circle cx="50" cy="76" r="8" fill="none" stroke="${gold}" stroke-width="2"/><circle cx="50" cy="76" r="3" fill="${gold}"/>`,journalist:'<rect x="30" y="68" width="22" height="26" fill="#f5efe0"/><path d="M34 76h14M34 82h14M34 88h10" stroke="#555"/>',impostor:'<path d="M32 44q18 14 36 0v6q-18 14-36 0z" fill="#111"/>',thug:hat+'<path d="M30 78l40 8" stroke="#888" stroke-width="5"/>',thief:'<rect x="34" y="36" width="32" height="9" fill="#111"/><path d="M34 34l-4-8 14 4zM66 34l4-8-14 4z" fill="#111"/>',godfather:hat+'<path d="M50 62l-6 8 6 4 6-4z" fill="#b3202a"/><circle cx="62" cy="66" r="3" fill="#b3202a"/>',lawyer:hat+'<rect x="56" y="70" width="26" height="20" fill="#5a3a1a"/>',snitch:'<path d="M34 34h32v-8H34z" fill="#111"/><path d="M28 48h12M60 48h12" stroke="#000" stroke-width="3"/>',yakuza:'<path d="M20 20L80 90" stroke="#ddd" stroke-width="4"/><circle cx="50" cy="40" r="15" fill="none" stroke="#b3202a" stroke-width="3"/>',femme:'<path d="M31 44c-4-30 38-30 38 0v12c-10-12-28-12-38 0z" fill="#2a0a12"/><circle cx="56" cy="50" r="2" fill="#b3202a"/>',psycho:hat+'<path d="M38 46l24 0" stroke="#900" stroke-width="3"/><path d="M60 62l22 22" stroke="#ccc" stroke-width="4"/>'};
+const TC={civ:['#1f4b6e','#0b1a28'],maf:['#7a1018','#1c0508'],yak:['#8a6a10','#1a1204'],loner:['#4b2f7a','#120a1c']};
+function portrait(r){const t=RO[r][2],c=TC[t];return`<svg viewBox="0 0 100 100"><defs><linearGradient id="g${r}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${c[0]}"/><stop offset="1" stop-color="${c[1]}"/></linearGradient></defs><rect width="100" height="100" fill="url(#g${r})"/>${body}${ACC[r]||''}</svg>`}
+function avs(i){const h=i*30;return`<svg viewBox="0 0 100 100" onclick="pickAv(${i})" class="${i==av?'s':''}"><rect width="100" height="100" fill="hsl(${h},45%,26%)"/><circle cx="50" cy="42" r="17" fill="#e0b58a"/><path d="M14 100c0-28 16-34 36-34s36 6 36 34z" fill="hsl(${h},30%,14%)"/>${i%3==0?'<path d="M30 36h40l-5-16H35z" fill="#111"/>':i%3==1?'<path d="M32 38c0-20 36-20 36 0z" fill="#222"/>':'<rect x="34" y="40" width="32" height="6" fill="#000"/>'}</svg>`}
+function avOf(i){return avs(i).replace(/onclick="[^"]*"/,'').replace(/class="[^"]*"/,'')}
+function send(o){o.token=tok;if(ws&&ws.readyState==1)ws.send(JSON.stringify(o))}
+function conn(){ws=new WebSocket((location.protocol=='https:'?'wss://':'ws://')+location.host);
+ ws.onopen=()=>{const c=L.mv_code||code;if(c&&name)send({t:'join',code:c,name,av})};
+ ws.onmessage=e=>{const m=JSON.parse(e.data);if(m.t=='state'){S=m;code=m.code;L.mv_code=m.code;end=Date.now()+m.left;toast='';history.replaceState(0,'','?r='+m.code);render()}
+  else if(m.t=='err'){toast=m.m;if(m.m=='الغرفة غير موجودة')delete L.mv_code;render()}else if(m.t=='lb'){LB=m.rows;render()}};
+ ws.onclose=()=>setTimeout(conn,1500)}
+setInterval(()=>send({t:'ping'}),5000);
+setInterval(()=>{const e=$('#tm');if(e)e.textContent=Math.max(0,Math.ceil((end-Date.now())/1000))+' ث'},400);
+function readHome(){name=($('#nm').value||'').trim();code=($('#cd')?$('#cd').value:code).trim().toUpperCase();L.mv_name=name;L.mv_av=av}
+function create(){readHome();send({t:'create',name,av})}
+function join(){readHome();send({t:'join',code,name,av})}
+function pickAv(i){readHome();av=i;L.mv_av=i;render()}
+function leave(){send({t:'leave'});delete L.mv_code;S=null;history.replaceState(0,'','/');render()}
+function cfg(k,v){const c={...S.cfg};c[k]=v;send({t:'cfg',cfg:c})}
+function copy(){navigator.clipboard&&navigator.clipboard.writeText(location.origin+'/?r='+S.code);toast='تم نسخ الرابط';render()}
+function ring(ps,mark){const n=ps.length;return`<div class="tbl">${ps.map((p,i)=>{const a=2*Math.PI*i/n-Math.PI/2;
+ return`<div class="pl ${p.alive?'':'dead'} ${p.me?'me':''}" style="left:${50+40*Math.cos(a)}%;top:${50+42*Math.sin(a)}%">${avOf(p.av)}<div><span class="dot ${p.conn?'on':'off'}"></span>${esc(p.name)}</div><div class="tag">${p.host?'مضيف ':''}${p.sil?'مُسكَت ':''}${p.jail?'مسجون ':''}${p.role?RO[p.role][0]:''}${mark?mark(p):''}</div></div>`}).join('')}</div>`}
+function home(){return`<h1 style="text-align:center;font-size:34px">مافيا – الانتقام</h1><div class="card"><input id="nm" placeholder="اسمك" maxlength="16" value="${esc(name)}"><div class="sw">${[...Array(12).keys()].map(avs).join('')}</div>
+<p><button onclick="create()">إنشاء غرفة</button></p><input id="cd" placeholder="كود الغرفة" maxlength="5" value="${esc(code)}" style="text-transform:uppercase"><button class="g" onclick="join()">انضمام</button><div id="toast">${esc(toast)}</div></div>
+<div class="card"><h3>لوحة الترتيب</h3>${LB?LB.map((r,i)=>`<div>${i+1}. ${esc(r.name)} — ${r.pts} نقطة (${r.w} فوز / ${r.g} لعبة)</div>`).join('')||'لا نتائج بعد':'<button class="g" onclick="send({t:\'lb\'})">عرض</button>'}</div>`}
+function lobby(){const c=S.cfg,n=S.players.length;return`<h2>غرفة ${S.code}</h2><div class="bar"><span>اللاعبون ${n}/12</span><button class="g" onclick="leave()">مغادرة</button></div>${ring(S.players)}
+<div class="card" style="text-align:center"><div id="qr" style="display:inline-block;background:#fff;padding:8px;border-radius:8px"></div><div style="font-size:30px;letter-spacing:6px;color:var(--gold)">${S.code}</div><button class="g" onclick="copy()">نسخ رابط الدعوة</button><div id="toast">${esc(toast)}</div></div>
+${S.host?`<div class="card"><h3>الإعدادات</h3><label>مدة النقاش (ثانية)</label><input type="number" min="30" max="600" value="${c.discuss}" onchange="cfg('discuss',+this.value)">
+${[['mystery','وضع Mystery'],['impostor','المحتال Impostor'],['loner','وضع Loner (10+ لاعبين)'],['yakuza','وضع Yakuza (12 لاعباً)']].map(([k,t])=>`<div><label><input type="checkbox" style="width:auto" ${c[k]?'checked':''} onchange="cfg('${k}',this.checked)"> ${t}</label></div>`).join('')}
+<button ${n<6?'disabled':''} onclick="send({t:'start'})">ابدأ اللعبة${n<6?' (يلزم 6 على الأقل)':''}</button></div>`:'<div class="card">بانتظار المضيف…</div>'}`}
+function reveal(){const r=S.me.role,d=D[r];return`<h2>بطاقتك السرية</h2><div class="card">${show?`<div class="rc">${portrait(r)}<div><h3>${RO[r][0]} <small>${RO[r][1]}</small></h3><div class="tag">الفريق: ${RN[RO[r][2]]}</div></div></div><p>${d[0]}</p><p><b>ماذا تفعل:</b> ${d[1]}</p>`:'<div class="dark">اضغط لكشف بطاقتك (تأكد أن لا أحد يرى شاشتك)</div>'}
+<button class="g" onclick="show=!show;render()">${show?'إخفاء البطاقة':'كشف البطاقة'}</button><button onclick="send({t:'ack'});show=false">فهمت، أنا جاهز</button></div><div class="bar"><span>${S.players.filter(p=>p.ack).length}/${S.players.length} جاهزون</span><span id="tm"></span></div>`}
+function nightUI(){const s=S.step;if(!s)return`<div class="dark">أغلق عينيك…${S.calling?`<br><b style="color:var(--gold)">يُنادى الآن: ${S.calling}</b>`:''}</div>`;
+ const k=S.night+s.k;if(k!=key){key=k;sel=[];ac=null}
+ if(s.why)return`<div class="card">${s.why=='jail'?'أنت في السجن: لا تستطيع استخدام قدرتك.':s.why=='block'?'قدرتك محجوبة هذه الليلة.':'لا قتل في الليلة الأولى.'}</div>`;
+ if(s.k=='mafia'||s.k=='yakuza'){if(s.first)return`<div class="card"><h3>تعرّفوا على بعضكم</h3>${S.me.allies.map(x=>`<span class="chip">${esc(x)}</span>`).join('')}<p>لا قتل في الليلة الأولى.</p></div>`;
+  return`<div class="card"><h3>اختاروا الضحية بالأغلبية</h3><div class="tag">زملاؤك: ${S.me.allies.map(esc).join('، ')}</div>${tg(1)}<button ${sel.length!=1?'disabled':''} onclick="go('kill')">تصويت</button><button class="g" onclick="send({t:'act',pass:1})">امتناع</button>${s.voted?'<p>سُجّل صوتك — انتظر الآخرين</p>':''}</div>`}
+ const o=s.opts;ac=ac||o[0];const need=ac=='res'?2:1;
+ return`<div class="card"><h3>حان دورك</h3>${o.length>1?o.map(a=>`<button class="${a==ac?'':'g'}" onclick="ac='${a}';sel=[];render()">${AN[a]}</button>`).join(''):`<b>${AN[ac]}</b>`}${tg(need)}<button ${sel.length!=need?'disabled':''} onclick="go(ac)">تنفيذ</button><button class="g" onclick="send({t:'act',pass:1})">تخطي</button>${s.voted?'<p>تم</p>':''}</div>`}
+function tg(need){return`<div class="row">${S.players.filter(p=>p.alive&&!p.me).map(p=>`<button class="${sel.includes(p.id)?'sel':'g'}" onclick="pk('${p.id}',${need})">${esc(p.name)}</button>`).join('')}</div>`}
+function pk(i,n){sel=sel.includes(i)?sel.filter(x=>x!=i):[...sel,i].slice(-n);render()}
+function go(a){send({t:'act',a,tg:sel});sel=[]}
+function game(){const P=S.players,me=P.find(p=>p.me),by=id=>P.find(p=>p.id==id);let m='';
+ if(S.phase=='night')m=me.alive?nightUI():'<div class="dark">أنت خارج اللعبة. شاهد بصمت.</div>';
+ else if(S.phase=='dawn')m='<div class="card"><h3>الفجر</h3>'+S.log.slice(-6).map(esc).join('<br>')+'</div>';
+ else if(S.phase=='day')m=`<div class="card"><h3>النقاش والاتهام</h3><div>المشتبهون: ${S.sus.map(i=>`<span class="chip">${esc(by(i).name)}</span>`).join('')||'—'} (يلزم اثنان على الأقل)</div>${me.alive?`<div class="row">${P.filter(p=>p.alive).map(p=>`<button class="g" onclick="send({t:'suspect',id:'${p.id}'})">اتهام ${esc(p.name)}</button>`).join('')}</div><button onclick="send({t:'ready'})">انتهى النقاش</button>`:''}</div>`;
+ else if(S.phase=='vote'){const c=by(S.cur);m=`<div class="card"><h3>التصويت على إقصاء: ${esc(c.name)}</h3>${S.me.hyp?'<p>أنت منوَّم: صوتك يتبع المنوّم.</p>':!S.me.canVote?'<p>لا يحق لك التصويت.</p>':S.voted?'<p>سُجّل صوتك.</p>':'<button onclick="send({t:\'vote\',v:1})">أوافق على الإقصاء</button><button class="g" onclick="send({t:\'vote\',v:0})">امتناع</button>'}</div>`}
+ else if(S.phase=='over')m=`<div class="card"><h2>الفائز: ${S.win=='none'?'لا أحد':RN[S.win]}</h2>${P.map(p=>`<div>${esc(p.name)} — ${RO[p.role][0]} (${RN[RO[p.role][2]]})</div>`).join('')}${S.host?'<button onclick="send({t:\'again\'})">لعبة جديدة</button>':''}<button class="g" onclick="leave()">مغادرة</button></div>`;
+ return`<div class="bar"><span>${S.phase=='night'?'الليلة '+S.night:S.phase=='over'?'':'اليوم بعد الليلة '+S.night}</span><span id="tm"></span></div>${ring(P,p=>'')}
+ ${me.alive?`<div class="card" style="padding:8px"><div class="rc">${portrait(S.me.role)}<div><b>${RO[S.me.role][0]}</b><div class="tag">${RN[RO[S.me.role][2]]}</div></div></div></div>`:''}${m}
+ ${S.me.notes.length?`<div class="card"><h3>ملاحظاتك السرية</h3><div class="log">${S.me.notes.map(esc).join('<br>')}</div></div>`:''}<div class="card"><div class="log" id="gl">${S.log.map(esc).join('<br>')}</div></div>`}
+function render(){const a=$('#app');document.body.className=S&&S.phase=='night'?'night':S&&S.phase=='over'?'':'day';
+ if(!S){a.innerHTML=home();return}
+ a.innerHTML=S.phase=='lobby'?lobby():S.phase=='reveal'?reveal():game();
+ if(S.phase=='lobby'&&window.QRCode&&$('#qr'))new QRCode($('#qr'),{text:location.origin+'/?r='+S.code,width:170,height:170});
+ const c=$('#chat');c.style.display=(S.phase=='day'||S.phase=='vote')?'block':'none';$('#cl').innerHTML=S.chat.map(x=>'<b>'+esc(x.n)+'</b>: '+esc(x.m)).join('<br>');
+ const g=$('#gl');if(g)g.scrollTop=1e5}
+render();conn();
+</script></body></html>
